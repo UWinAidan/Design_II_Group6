@@ -1,24 +1,62 @@
 {
-  "version": "0.2.0",
-  "configurations": [
-    {
-      "name": "C/C++ Runner: Debug Session",
-      "type": "cppdbg",
-      "request": "launch",
-      "args": [],
-      "stopAtEntry": false,
-      "externalConsole": true,
-      "cwd": "c:/Users/4aida/OneDrive/Documents/GitHub/Design_II_Group6/Trebuchet/WIPPER_TREBUCHET",
-      "program": "c:/Users/4aida/OneDrive/Documents/GitHub/Design_II_Group6/Trebuchet/WIPPER_TREBUCHET/build/Debug/outDebug",
-      "MIMode": "gdb",
-      "miDebuggerPath": "gdb",
-      "setupCommands": [
+    "version": "2.0.0",
+    "tasks": [
         {
-          "description": "Enable pretty-printing for gdb",
-          "text": "-enable-pretty-printing",
-          "ignoreFailures": true
+            "label": "Build Trebuchet",
+            "type": "shell",
+            "command": "g++",
+            "args": [
+                "-Wall",
+                "-Wextra",
+                "-Wpedantic",
+                "-Wshadow",
+                "-Wformat=2",
+                "-Wcast-align",
+                "-Wconversion",
+                "-Wsign-conversion",
+                "-Wnull-dereference",
+                "-g3",
+                "-O0",
+                "-c",
+                "${workspaceFolder}/Trebuchet/WIPPER_TREBUCHET/Simulation_Code.cpp",
+                "-o",
+                "${workspaceFolder}/build/Debug/Simulation_Code.o"
+            ],
+            "group": {
+                "kind": "build",
+                "isDefault": true
+            }
+        },
+        {
+            "label": "Link Trebuchet",
+            "type": "shell",
+            "command": "g++",
+            "args": [
+                "-Wall",
+                "-Wextra",
+                "-Wpedantic",
+                "-Wshadow",
+                "-Wformat=2",
+                "-Wcast-align",
+                "-Wconversion",
+                "-Wsign-conversion",
+                "-Wnull-dereference",
+                "-g3",
+                "-O0",
+                "${workspaceFolder}/build/Debug/Simulation_Code.o",
+                "-o",
+                "${workspaceFolder}/build/Debug/outDebug.exe",
+                "-lgdiplus",
+                "-luser32",
+                "-lgdi32",
+                "-lole32",
+                "-loleaut32"
+            ],
+            "dependsOn": ["Build Trebuchet"],
+            "group": {
+                "kind": "build",
+                "isDefault": true
+            }
         }
-      ]
-    }
-  ]
+    ]
 }
