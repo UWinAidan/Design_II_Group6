@@ -32,10 +32,18 @@ const double PI = 3.14159265359;
     double theta_cw_rel_start = 4.12 * (PI / 180.0);                                    // CW arm folded back from main
     double release_arm_angle_deg = 90.0;                                                // Release when arm is at 90° (straight up)
     double sling_release_angle_deg = 43.55;                                             // Projectile launches at this angle above horizontal    
+    double abs_cw_angle = theta_main_start + theta_cw_rel_start;                        // Absolute angle of CW arm (for state logic)
+    
     double mu_poplar = 0.35;                                                            // Friction: Poplar on Poplar
     double pin_radius = 0.00635;                                                        // Radius of the pivot pin (m)
 // ====================================================================================================================================
-// 4. SIMULATION LOGIC
+// 4. state logic variables
+// ====================================================================================================================================
+    enum SimuStates {fused_motion, paremetric_motion, launch, data_collection};
+    bool running = true;
+    SimuStates current_state = fused_motion;
+// ====================================================================================================================================
+// 5. SIMULATION LOGIC
 // ====================================================================================================================================
     double omega_main = 0.0;
     double dt = 0.0001;                                                                 // Time step (s)
