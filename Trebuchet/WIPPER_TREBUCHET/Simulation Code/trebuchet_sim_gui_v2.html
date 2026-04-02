@@ -1,0 +1,520 @@
+
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+.panel{background:var(--color-background-primary);border:0.5px solid var(--color-border-tertiary);border-radius:var(--border-radius-lg);padding:1rem 1.25rem}
+.label{font-size:12px;color:var(--color-text-secondary);margin-bottom:2px}
+.val{font-size:13px;font-weight:500;color:var(--color-text-primary)}
+.metric{background:var(--color-background-secondary);border-radius:var(--border-radius-md);padding:0.6rem 0.8rem}
+.state-badge{display:inline-block;font-size:11px;font-weight:500;padding:3px 10px;border-radius:var(--border-radius-md)}
+.s0{background:#E6F1FB;color:#0C447C}.s1{background:#EAF3DE;color:#27500A}
+.s2{background:#FAEEDA;color:#633806}.s3{background:#E1F5EE;color:#085041}
+.slider-row{display:flex;align-items:center;gap:8px;margin-bottom:6px}
+.slider-row label{font-size:12px;color:var(--color-text-secondary);width:170px;flex-shrink:0}
+.slider-row input[type=range]{flex:1}
+.slider-row span{font-size:12px;font-weight:500;color:var(--color-text-primary);width:52px;text-align:right;flex-shrink:0}
+#runBtn{width:100%;padding:8px;font-size:14px;font-weight:500;border-radius:var(--border-radius-md);cursor:pointer}
+.energy-ok{color:#27500A;font-size:11px;font-weight:500}
+.energy-bad{color:#A32D2D;font-size:11px;font-weight:500}
+</style>
+
+<div style="padding:1rem 0">
+
+<div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:12px">
+  <div class="panel">
+    <div style="font-size:13px;font-weight:500;color:var(--color-text-primary);margin-bottom:10px">Parameters</div>
+    <div class="slider-row"><label>Start angle (deg)</label><input type="range" id="p_start" min="10" max="85" step="1" value="45"><span id="v_start">45</span></div>
+    <div class="slider-row"><label>CW mass (kg)</label><input type="range" id="p_cw" min="0.2" max="3" step="0.05" value="1.016"><span id="v_cw">1.016</span></div>
+    <div class="slider-row"><label>Projectile mass (kg)</label><input type="range" id="p_mp" min="0.005" max="0.2" step="0.005" value="0.023"><span id="v_mp">0.023</span></div>
+    <div class="slider-row"><label>Sling length (m)</label><input type="range" id="p_sl" min="0.2" max="1.5" step="0.05" value="0.9"><span id="v_sl">0.900</span></div>
+    <div class="slider-row"><label>Arm tip radius (m)</label><input type="range" id="p_tip" min="0.3" max="1.5" step="0.025" value="0.9625"><span id="v_tip">0.963</span></div>
+    <div class="slider-row"><label>Friction coeff</label><input type="range" id="p_mu" min="0" max="0.8" step="0.01" value="0.35"><span id="v_mu">0.350</span></div>
+    <button id="runBtn">Run simulation</button>
+    <div style="margin-top:6px;min-height:16px" id="energyStatus"></div>
+  </div>
+
+  <div class="panel">
+    <div style="font-size:13px;font-weight:500;color:var(--color-text-primary);margin-bottom:8px">Live state</div>
+    <div style="margin-bottom:6px"><span class="label">Current state</span><br><span id="stateBadge" class="state-badge s0">fused motion</span></div>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:8px">
+      <div class="metric"><div class="label">theta main</div><div class="val" id="m_q1">—</div></div>
+      <div class="metric"><div class="label">omega main</div><div class="val" id="m_dq1">—</div></div>
+      <div class="metric"><div class="label">theta CW abs</div><div class="val" id="m_q2a">—</div></div>
+      <div class="metric"><div class="label">omega CW rel</div><div class="val" id="m_dq2">—</div></div>
+      <div class="metric"><div class="label">sling abs angle</div><div class="val" id="m_q3a">—</div></div>
+      <div class="metric"><div class="label">sim time</div><div class="val" id="m_t">—</div></div>
+    </div>
+    <div style="margin-top:8px;display:grid;grid-template-columns:1fr 1fr;gap:8px">
+      <div class="metric"><div class="label">launch speed</div><div class="val" id="m_spd">—</div></div>
+      <div class="metric"><div class="label">launch angle</div><div class="val" id="m_ang">—</div></div>
+      <div class="metric"><div class="label">range</div><div class="val" id="m_range">—</div></div>
+      <div class="metric"><div class="label">max height</div><div class="val" id="m_height">—</div></div>
+    </div>
+  </div>
+</div>
+
+<div style="display:grid;grid-template-columns:1fr 1fr;gap:12px">
+  <div class="panel">
+    <div style="font-size:13px;font-weight:500;color:var(--color-text-primary);margin-bottom:8px">Trebuchet view</div>
+    <canvas id="armCanvas" width="340" height="260" style="width:100%;border-radius:6px;background:var(--color-background-secondary)"></canvas>
+  </div>
+  <div class="panel">
+    <div style="font-size:13px;font-weight:500;color:var(--color-text-primary);margin-bottom:8px">Trajectory</div>
+    <canvas id="trajCanvas" width="340" height="260" style="width:100%;border-radius:6px;background:var(--color-background-secondary)"></canvas>
+  </div>
+</div>
+
+<div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-top:12px">
+  <div class="panel">
+    <div style="font-size:13px;font-weight:500;margin-bottom:6px;color:var(--color-text-primary)">Main arm angle (deg) vs time</div>
+    <div style="position:relative;height:160px"><canvas id="angChart"></canvas></div>
+  </div>
+  <div class="panel">
+    <div style="font-size:13px;font-weight:500;margin-bottom:6px;color:var(--color-text-primary)">Angular velocity (rad/s) vs time</div>
+    <div style="position:relative;height:160px"><canvas id="omgChart"></canvas></div>
+  </div>
+</div>
+
+</div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.js"></script>
+<script>
+const G=9.81,PI=Math.PI;
+const MAX_DTHETA=0.001, DT_MIN=1e-8, DT_MAX=0.0001;
+
+function sign(x){return x>0?1:x<0?-1:0}
+
+function adaptiveDt(omega){
+  const om=Math.abs(omega);
+  if(om<1e-6)return DT_MAX;
+  return Math.max(DT_MIN,Math.min(DT_MAX,MAX_DTHETA/om));
+}
+
+function solve3x3(A,b){
+  const det=A[0][0]*(A[1][1]*A[2][2]-A[1][2]*A[2][1])
+           -A[0][1]*(A[1][0]*A[2][2]-A[1][2]*A[2][0])
+           +A[0][2]*(A[1][0]*A[2][1]-A[1][1]*A[2][0]);
+  if(Math.abs(det)<1e-12)return null;
+  const inv=1/det,x=[];
+  for(let col=0;col<3;col++){
+    const Ac=A.map((r,ri)=>r.map((v,ci)=>ci===col?b[ri]:v));
+    const d=Ac[0][0]*(Ac[1][1]*Ac[2][2]-Ac[1][2]*Ac[2][1])
+            -Ac[0][1]*(Ac[1][0]*Ac[2][2]-Ac[1][2]*Ac[2][0])
+            +Ac[0][2]*(Ac[1][0]*Ac[2][1]-Ac[1][1]*Ac[2][0]);
+    x.push(d*inv);
+  }
+  return x;
+}
+function solve2x2(A,b){
+  const det=A[0][0]*A[1][1]-A[0][1]*A[1][0];
+  if(Math.abs(det)<1e-12)return null;
+  const inv=1/det;
+  return[( A[1][1]*b[0]-A[0][1]*b[1])*inv,
+         (-A[1][0]*b[0]+A[0][0]*b[1])*inv];
+}
+
+// CORRECTED Coriolis terms
+function accel3(q1,q2,q3,dq1,dq2,dq3,p,fric){
+  const{IA,IB,IC,mD,mE,tFP,tFH,m_arm,m_cw,m_p,r_main_pivot_to_cg,
+        r_pivot_to_hinge,r_hinge_to_cw_cg,r_main_tip,sling_length}=p;
+  const c2=Math.cos(q2),s2=Math.sin(q2),c3=Math.cos(q3),s3=Math.sin(q3);
+  const q2a=q1+q2,q3a=q1+q3;
+  const A=[[IA+IB+IC+2*mD*c2+2*mE*c3, IB+mD*c2, IC+mE*c3],
+            [IB+mD*c2,                  IB,        0       ],
+            [IC+mE*c3,                  0,         IC      ]];
+  // FIXED Coriolis
+  const cor1=mD*s2*dq2*(2*dq1+dq2)+mE*s3*dq3*(2*dq1+dq3);
+  const cor2=mD*s2*dq1*(dq1+2*dq2);   // was: mD*s2*dq1*dq1
+  const cor3=mE*s3*dq1*(dq1+2*dq3);   // was: mE*s3*dq1*dq1
+  const g1=-G*(m_arm*r_main_pivot_to_cg*Math.cos(q1)
+              +m_cw*(r_pivot_to_hinge*Math.cos(q1)+r_hinge_to_cw_cg*Math.cos(q2a))
+              +m_p*(r_main_tip*Math.cos(q1)+sling_length*Math.cos(q3a)));
+  const g2=-G*m_cw*r_hinge_to_cw_cg*Math.cos(q2a);
+  const g3=-G*m_p*sling_length*Math.cos(q3a);
+  const Q1=fric?-sign(dq1)*tFP:0,Q2=fric?-sign(dq2)*tFH:0;
+  return solve3x3(A,[cor1+g1+Q1,cor2+g2+Q2,cor3+g3]);
+}
+
+function accel2(q1,q2,dq1,dq2,p,fric){
+  const{IB,mD,m_arm,m_cw,r_main_pivot_to_cg,r_pivot_to_hinge,r_hinge_to_cw_cg,tFH,tFPfree,I_main_arm}=p;
+  const c2=Math.cos(q2),s2=Math.sin(q2),q2a=q1+q2;
+  const IAf=I_main_arm+m_cw*r_pivot_to_hinge*r_pivot_to_hinge;
+  const A=[[IAf+IB+2*mD*c2,IB+mD*c2],[IB+mD*c2,IB]];
+  const cor1=mD*s2*dq2*(2*dq1+dq2);  // FIXED
+  const cor2=mD*s2*dq1*(dq1+2*dq2);  // FIXED
+  const g1=-G*(m_arm*r_main_pivot_to_cg*Math.cos(q1)
+              +m_cw*(r_pivot_to_hinge*Math.cos(q1)+r_hinge_to_cw_cg*Math.cos(q2a)));
+  const g2=-G*m_cw*r_hinge_to_cw_cg*Math.cos(q2a);
+  const Q1=fric?-sign(dq1)*tFPfree:0,Q2=fric?-sign(dq2)*tFH:0;
+  return solve2x2(A,[cor1+g1+Q1,cor2+g2+Q2]);
+}
+
+function rk4_3(s,h,p,fric){
+  const f=si=>{
+    const a=accel3(si[0],si[1],si[2],si[3],si[4],si[5],p,fric);
+    if(!a)return null;
+    return[si[3],si[4],si[5],a[0],a[1],a[2]];
+  };
+  const k1=f(s);if(!k1)return false;
+  const s2=s.map((v,i)=>v+0.5*h*k1[i]);
+  const k2=f(s2);if(!k2)return false;
+  const s3=s.map((v,i)=>v+0.5*h*k2[i]);
+  const k3=f(s3);if(!k3)return false;
+  const s4=s.map((v,i)=>v+h*k3[i]);
+  const k4=f(s4);if(!k4)return false;
+  for(let i=0;i<6;i++)s[i]+=(h/6)*(k1[i]+2*k2[i]+2*k3[i]+k4[i]);
+  return true;
+}
+
+function rk4_2(s,h,p,fric){
+  const f=si=>{
+    const a=accel2(si[0],si[1],si[2],si[3],p,fric);
+    if(!a)return null;
+    return[si[2],si[3],a[0],a[1]];
+  };
+  const k1=f(s);if(!k1)return false;
+  const s2=s.map((v,i)=>v+0.5*h*k1[i]);
+  const k2=f(s2);if(!k2)return false;
+  const s3=s.map((v,i)=>v+0.5*h*k2[i]);
+  const k3=f(s3);if(!k3)return false;
+  const s4=s.map((v,i)=>v+h*k3[i]);
+  const k4=f(s4);if(!k4)return false;
+  for(let i=0;i<4;i++)s[i]+=(h/6)*(k1[i]+2*k2[i]+2*k3[i]+k4[i]);
+  return true;
+}
+
+function rk4_fused(sf,h,p){
+  const acc=(q,w)=>{
+    const{I_fused,m_arm,m_cw,m_p,r_main_pivot_to_cg,r_pivot_to_hinge,
+          r_hinge_to_cw_cg,r_main_tip,theta_cw_rel_start,tFP}=p;
+    const tA=-m_arm*G*r_main_pivot_to_cg*Math.cos(q);
+    const tC=-m_cw*G*(r_pivot_to_hinge*Math.cos(q)+r_hinge_to_cw_cg*Math.cos(q+theta_cw_rel_start));
+    const tPt=-m_p*G*r_main_tip*Math.cos(q);
+    const tF=-sign(w)*tFP;
+    return(tA+tC+tPt+tF)/I_fused;
+  };
+  const q=sf[0],w=sf[1];
+  const k1q=w,            k1w=acc(q,w);
+  const k2q=w+0.5*h*k1w,  k2w=acc(q+0.5*h*k1q,w+0.5*h*k1w);
+  const k3q=w+0.5*h*k2w,  k3w=acc(q+0.5*h*k2q,w+0.5*h*k2w);
+  const k4q=w+h*k3w,      k4w=acc(q+h*k3q,    w+h*k3w);
+  sf[0]+=(h/6)*(k1q+2*k2q+2*k3q+k4q);
+  sf[1]+=(h/6)*(k1w+2*k2w+2*k3w+k4w);
+}
+
+// Bisection to land exactly on event_angle
+function stepToEvent3(s,event_angle,p,fric){
+  const s_before=[...s];
+  let h_lo=0, h_hi=adaptiveDt(s[3]);
+  const s_test=[...s_before];
+  rk4_3(s_test,h_hi,p,fric);
+  if(s_test[0]>event_angle){
+    for(let i=0;i<6;i++)s[i]=s_test[i];
+    return h_hi;
+  }
+  for(let iter=0;iter<60;iter++){
+    const h_mid=0.5*(h_lo+h_hi);
+    const sm=[...s_before];
+    rk4_3(sm,h_mid,p,fric);
+    if(sm[0]>event_angle)h_lo=h_mid;
+    else h_hi=h_mid;
+    if(h_hi-h_lo<1e-11)break;
+  }
+  for(let i=0;i<6;i++)s[i]=s_before[i];
+  rk4_3(s,h_lo,p,fric);
+  return h_lo;
+}
+
+// Energy check (for display)
+function totalEnergy(q1,q2,q3,dq1,dq2,dq3,p){
+  const{IA,IB,IC,mD,mE,m_arm,m_cw,m_p,r_main_pivot_to_cg,
+        r_pivot_to_hinge,r_hinge_to_cw_cg,r_main_tip,sling_length}=p;
+  const c2=Math.cos(q2),c3=Math.cos(q3);
+  const KE=0.5*IA*dq1*dq1+0.5*IB*(dq1+dq2)**2+0.5*IC*(dq1+dq3)**2
+           +mD*c2*dq1*(dq1+dq2)+mE*c3*dq1*(dq1+dq3);
+  const PE=m_arm*G*r_main_pivot_to_cg*Math.sin(q1)
+           +m_cw*G*(r_pivot_to_hinge*Math.sin(q1)+r_hinge_to_cw_cg*Math.sin(q1+q2))
+           +m_p *G*(r_main_tip*Math.sin(q1)+sling_length*Math.sin(q1+q3));
+  return{KE,PE,E:KE+PE};
+}
+
+function buildParams(){
+  const m_arm=0.167,r_main_pivot_to_cg=0.3825,r_pivot_to_hinge=0.175;
+  const r_hinge_to_cw_cg=0.6916,theta_cw_rel_start=4.12*PI/180;
+  const m_cw=parseFloat(document.getElementById('p_cw').value);
+  const m_p=parseFloat(document.getElementById('p_mp').value);
+  const sling_length=parseFloat(document.getElementById('p_sl').value);
+  const r_main_tip=parseFloat(document.getElementById('p_tip').value);
+  const mu=parseFloat(document.getElementById('p_mu').value);
+  const theta_main_start=parseFloat(document.getElementById('p_start').value)*PI/180;
+  const I_main_arm=0.000005859+m_arm*r_main_pivot_to_cg**2;
+  const I_cw_arm_total=0.03467282+m_cw*r_hinge_to_cw_cg**2;
+  const I_fused=I_main_arm+I_cw_arm_total+m_p*r_main_tip**2;
+  const m_total=m_arm+m_cw+m_p;
+  const pin_radius=0.00635;
+  const IA=I_main_arm+m_cw*r_pivot_to_hinge**2+m_p*r_main_tip**2;
+  const IB=I_cw_arm_total, IC=m_p*sling_length**2;
+  const mD=m_cw*r_pivot_to_hinge*r_hinge_to_cw_cg;
+  const mE=m_p*r_main_tip*sling_length;
+  const tFP=mu*m_total*G*pin_radius;
+  const tFH=mu*m_cw*G*pin_radius;
+  const tFPfree=mu*(m_arm+m_cw)*G*pin_radius;
+  return{m_arm,m_cw,m_p,sling_length,r_main_tip,r_pivot_to_hinge,r_hinge_to_cw_cg,
+         r_main_pivot_to_cg,theta_cw_rel_start,theta_main_start,
+         I_main_arm,I_cw_arm_total,I_fused,IA,IB,IC,mD,mE,
+         tFP,tFH,tFPfree,pin_radius,
+         sling_release_abs_angle:(43.55-90)*PI/180,
+         target_theta:(90-360)*PI/180,
+         fused_threshold:-90*PI/180};
+}
+
+function runSim(p){
+  const maxIter=2000000;
+  const sf=[p.theta_main_start,0];
+  const s3=[p.theta_main_start,p.theta_cw_rel_start,0,0,0,0];
+  const s2=[0,0,0,0];
+  let state=0,t=0,iter=0;
+  let xp=0,yp=0,vxp=0,vyp=0;
+  let launch_x=0,launch_y=0,launch_vx=0,launch_vy=0,max_height=0;
+  const tlog=[],q1log=[],omglog=[],elog=[];
+  const snap_t=[],snap_q1=[],snap_q2a=[],snap_q3a=[],snap_dq1=[],snap_dq2=[],snap_state=[];
+  const traj_x=[],traj_y=[];
+  const SNAP=50;
+  let E0=null;
+
+  while(state<4&&iter<maxIter){
+    const q1=s3[0],q2=s3[1],q2a=q1+q2;
+    if(state===0&&q2a<=p.fused_threshold){
+      state=1;
+      s3[0]=sf[0];s3[3]=sf[1];s3[1]=p.theta_cw_rel_start;s3[2]=0;s3[4]=0;s3[5]=0;
+      E0=totalEnergy(s3[0],s3[1],s3[2],s3[3],s3[4],s3[5],p).E;
+    }
+    if(state===1&&s3[0]<=p.target_theta) state=2;
+    if(state===2){
+      const q3a=s3[0]+s3[2];
+      if(q3a<=p.sling_release_abs_angle){
+        const dq3ar=s3[3]+s3[5];
+        launch_x=p.r_main_tip*Math.cos(s3[0])+p.sling_length*Math.cos(q3a);
+        launch_y=p.r_main_tip*Math.sin(s3[0])+p.sling_length*Math.sin(q3a);
+        launch_vx=-p.r_main_tip*Math.sin(s3[0])*s3[3]-p.sling_length*Math.sin(q3a)*dq3ar;
+        launch_vy= p.r_main_tip*Math.cos(s3[0])*s3[3]+p.sling_length*Math.cos(q3a)*dq3ar;
+        xp=launch_x;yp=launch_y;vxp=launch_vx;vyp=launch_vy;
+        s2[0]=s3[0];s2[1]=s3[1];s2[2]=s3[3];s2[3]=s3[4];
+        state=3;
+      }
+    }
+    if(state===3&&yp<=0&&iter>100) state=4;
+
+    if(iter%SNAP===0){
+      snap_t.push(t);snap_q1.push(s3[0]*180/PI);
+      snap_q2a.push((s3[0]+s3[1])*180/PI);
+      snap_q3a.push((s3[0]+s3[2])*180/PI);
+      snap_dq1.push(s3[3]);snap_dq2.push(s3[4]);snap_state.push(state);
+      tlog.push(t);q1log.push(s3[0]*180/PI);omglog.push(s3[3]);
+      if(E0!==null){
+        const en=totalEnergy(s3[0],s3[1],s3[2],s3[3],s3[4],s3[5],p);
+        elog.push({t,E:en.E,dE:en.E-E0});
+      }
+      if(state===3){traj_x.push(xp);traj_y.push(yp);}
+    }
+
+    let h;
+    if(state===0){rk4_fused(sf,DT_MAX,p);s3[0]=sf[0];s3[3]=sf[1];h=DT_MAX;}
+    else if(state===1){
+      if(s3[0]>p.target_theta&&s3[0]+Math.abs(s3[3])*DT_MAX*10<=p.target_theta){
+        h=stepToEvent3(s3,p.target_theta,p,true);
+      } else {
+        h=adaptiveDt(s3[3]);rk4_3(s3,h,p,true);
+      }
+    }
+    else if(state===2){h=adaptiveDt(s3[3]);rk4_3(s3,h,p,true);}
+    else if(state===3){
+      h=adaptiveDt(s2[2]);
+      vyp-=G*h;xp+=vxp*h;yp+=vyp*h;
+      if(yp>max_height)max_height=yp;
+      rk4_2(s2,h,p,true);
+    } else h=DT_MAX;
+
+    t+=h;iter++;
+  }
+
+  const x_land=xp-vxp*(yp/vyp);
+  const spd=Math.sqrt(launch_vx**2+launch_vy**2);
+  const ang=Math.atan2(launch_vy,launch_vx)*180/PI;
+  // Energy drift check
+  const maxDE=elog.length?Math.max(...elog.map(e=>Math.abs(e.dE))):0;
+  return{tlog,q1log,omglog,elog,snap_t,snap_q1,snap_q2a,snap_q3a,
+         snap_dq1,snap_dq2,snap_state,traj_x,traj_y,
+         launch_x,launch_y,launch_vx,launch_vy,spd,ang,x_land,max_height,
+         total_t:t,maxDE,p};
+}
+
+let angChart=null,omgChart=null;
+function makeChart(id,label,color){
+  return new Chart(document.getElementById(id),{
+    type:'line',
+    data:{labels:[],datasets:[{label,data:[],borderColor:color,borderWidth:1.5,pointRadius:0,tension:0.2}]},
+    options:{responsive:true,maintainAspectRatio:false,animation:false,
+      plugins:{legend:{display:false}},
+      scales:{x:{ticks:{maxTicksLimit:6,font:{size:10}},title:{display:true,text:'time (s)',font:{size:10}}},
+              y:{ticks:{maxTicksLimit:6,font:{size:10}}}}}
+  });
+}
+function initCharts(){
+  if(angChart){angChart.destroy();omgChart.destroy();}
+  angChart=makeChart('angChart','angle','#378ADD');
+  omgChart=makeChart('omgChart','omega','#1D9E75');
+}
+function updateCharts(res){
+  angChart.data.labels=res.tlog.map(v=>v.toFixed(4));
+  angChart.data.datasets[0].data=res.q1log;
+  angChart.update();
+  omgChart.data.labels=res.tlog.map(v=>v.toFixed(4));
+  omgChart.data.datasets[0].data=res.omglog;
+  omgChart.update();
+}
+
+function drawArm(res,fi){
+  const canvas=document.getElementById('armCanvas');
+  const ctx=canvas.getContext('2d');
+  const W=canvas.width,H=canvas.height;
+  ctx.clearRect(0,0,W,H);
+  const p=res.p;
+  const px=W/2-30,py=H/2+20,scale=100;
+  const isDark=matchMedia('(prefers-color-scheme: dark)').matches;
+  const fg=isDark?'rgba(255,255,255,0.85)':'rgba(0,0,0,0.85)';
+  const dimC=isDark?'rgba(255,255,255,0.15)':'rgba(0,0,0,0.12)';
+  const toC=(x,y)=>[px+x*scale,py-y*scale];
+  const q1=res.snap_q1[fi]*PI/180;
+  const q2a=res.snap_q2a[fi]*PI/180;
+  const q3a=res.snap_q3a[fi]*PI/180;
+  const st=res.snap_state[fi];
+
+  // Ground
+  ctx.strokeStyle=dimC;ctx.lineWidth=1;
+  ctx.beginPath();ctx.moveTo(0,py+2);ctx.lineTo(W,py+2);ctx.stroke();
+
+  // Pivot
+  const[pvx,pvy]=toC(0,0);
+  ctx.strokeStyle=fg;ctx.lineWidth=1.5;
+  ctx.beginPath();ctx.moveTo(pvx-6,pvy);ctx.lineTo(pvx+6,pvy);ctx.stroke();
+  ctx.beginPath();ctx.moveTo(pvx,pvy-6);ctx.lineTo(pvx,pvy+6);ctx.stroke();
+
+  // Main arm
+  const tx=p.r_main_tip*Math.cos(q1),ty=p.r_main_tip*Math.sin(q1);
+  const bx=-p.r_pivot_to_hinge*Math.cos(q1),by=-p.r_pivot_to_hinge*Math.sin(q1);
+  const[tx2,ty2]=toC(tx,ty),[bx2,by2]=toC(bx,by);
+  ctx.strokeStyle='#378ADD';ctx.lineWidth=4;
+  ctx.beginPath();ctx.moveTo(bx2,by2);ctx.lineTo(tx2,ty2);ctx.stroke();
+
+  // CW arm
+  const cwx=bx+p.r_hinge_to_cw_cg*Math.cos(q2a);
+  const cwy=by+p.r_hinge_to_cw_cg*Math.sin(q2a);
+  const[hx2,hy2]=toC(bx,by),[cwx2,cwy2]=toC(cwx,cwy);
+  ctx.strokeStyle='#E24B4A';ctx.lineWidth=3;
+  ctx.beginPath();ctx.moveTo(hx2,hy2);ctx.lineTo(cwx2,cwy2);ctx.stroke();
+  ctx.fillStyle='#E24B4A';ctx.beginPath();ctx.arc(cwx2,cwy2,7,0,2*PI);ctx.fill();
+
+  // Sling
+  const slx=tx+p.sling_length*Math.cos(q3a),sly=ty+p.sling_length*Math.sin(q3a);
+  const[slx2,sly2]=toC(slx,sly);
+  if(st<3){
+    ctx.strokeStyle='#888780';ctx.lineWidth=1.5;ctx.setLineDash([3,3]);
+    ctx.beginPath();ctx.moveTo(tx2,ty2);ctx.lineTo(slx2,sly2);ctx.stroke();
+    ctx.setLineDash([]);
+    ctx.fillStyle='#1D9E75';ctx.beginPath();ctx.arc(slx2,sly2,5,0,2*PI);ctx.fill();
+  }
+
+  // Arm CG
+  const[cgx2,cgy2]=toC(-p.r_main_pivot_to_cg*Math.cos(q1),-p.r_main_pivot_to_cg*Math.sin(q1));
+  ctx.fillStyle='#EF9F27';ctx.beginPath();ctx.arc(cgx2,cgy2,4,0,2*PI);ctx.fill();
+
+  // Labels
+  const stNames=['fused','parametric','launch A','launch B','done'];
+  const stColors=['#378ADD','#1D9E75','#EF9F27','#D85A30','#888780'];
+  ctx.fillStyle=stColors[Math.min(st,4)];ctx.font='500 12px var(--font-sans)';
+  ctx.fillText(stNames[Math.min(st,4)],8,18);
+  ctx.fillStyle=fg;ctx.font='11px var(--font-sans)';
+  ctx.fillText('t = '+res.snap_t[fi].toFixed(4)+' s',8,H-8);
+  ctx.fillText('ω = '+res.snap_dq1[fi].toFixed(2)+' rad/s',8,H-22);
+}
+
+function drawTraj(res){
+  const canvas=document.getElementById('trajCanvas');
+  const ctx=canvas.getContext('2d');
+  const W=canvas.width,H=canvas.height;
+  ctx.clearRect(0,0,W,H);
+  const isDark=matchMedia('(prefers-color-scheme: dark)').matches;
+  const fg=isDark?'rgba(255,255,255,0.7)':'rgba(0,0,0,0.6)';
+  if(res.traj_x.length<2){
+    ctx.fillStyle=fg;ctx.font='13px var(--font-sans)';
+    ctx.fillText('no trajectory data',W/2-60,H/2);return;
+  }
+  const xs=res.traj_x,ys=res.traj_y;
+  const minX=Math.min(...xs),maxX=Math.max(...xs);
+  const minY=0,maxY=Math.max(...ys)*1.15;
+  const pad=24;
+  const sx=v=>(v-minX)/(maxX-minX||1)*(W-2*pad)+pad;
+  const sy=v=>(1-(v-minY)/(maxY-minY||1))*(H-2*pad)+pad;
+  ctx.strokeStyle=isDark?'rgba(255,255,255,0.2)':'rgba(0,0,0,0.15)';
+  ctx.lineWidth=1;ctx.beginPath();ctx.moveTo(pad,sy(0));ctx.lineTo(W-pad,sy(0));ctx.stroke();
+  ctx.strokeStyle='#D85A30';ctx.lineWidth=2;ctx.beginPath();
+  for(let i=0;i<xs.length;i++)i===0?ctx.moveTo(sx(xs[i]),sy(ys[i])):ctx.lineTo(sx(xs[i]),sy(ys[i]));
+  ctx.stroke();
+  ctx.fillStyle='#1D9E75';ctx.beginPath();ctx.arc(sx(res.launch_x),sy(res.launch_y),5,0,2*PI);ctx.fill();
+  ctx.fillStyle='#E24B4A';ctx.beginPath();ctx.arc(sx(res.x_land),sy(0),5,0,2*PI);ctx.fill();
+  ctx.fillStyle='#D85A30';ctx.font='11px var(--font-sans)';
+  ctx.fillText('range: '+res.x_land.toFixed(2)+' m',pad,H-8);
+  ctx.fillStyle='#1D9E75';
+  ctx.fillText('max h: '+res.max_height.toFixed(2)+' m',pad,pad+10);
+}
+
+let animFrame=null;
+function animate(res,frame){
+  if(frame>=res.snap_t.length){drawArm(res,res.snap_t.length-1);return;}
+  drawArm(res,frame);
+  const st=res.snap_state[frame];
+  const stNames=['fused motion','parametric motion','launch phase A','launch phase B','done'];
+  const stCls=['s0','s1','s2','s3','s3'];
+  const badge=document.getElementById('stateBadge');
+  badge.textContent=stNames[Math.min(st,4)];
+  badge.className='state-badge '+stCls[Math.min(st,4)];
+  document.getElementById('m_q1').textContent=res.snap_q1[frame].toFixed(2)+' deg';
+  document.getElementById('m_dq1').textContent=res.snap_dq1[frame].toFixed(3)+' rad/s';
+  document.getElementById('m_q2a').textContent=res.snap_q2a[frame].toFixed(2)+' deg';
+  document.getElementById('m_dq2').textContent=res.snap_dq2[frame].toFixed(3)+' rad/s';
+  document.getElementById('m_q3a').textContent=res.snap_q3a[frame].toFixed(2)+' deg';
+  document.getElementById('m_t').textContent=res.snap_t[frame].toFixed(4)+' s';
+  animFrame=requestAnimationFrame(()=>animate(res,frame+1));
+}
+
+document.getElementById('runBtn').addEventListener('click',()=>{
+  if(animFrame)cancelAnimationFrame(animFrame);
+  const p=buildParams();
+  initCharts();
+  const res=runSim(p);
+  document.getElementById('m_spd').textContent=res.spd.toFixed(2)+' m/s';
+  document.getElementById('m_ang').textContent=res.ang.toFixed(1)+' deg';
+  document.getElementById('m_range').textContent=res.x_land.toFixed(2)+' m';
+  document.getElementById('m_height').textContent=res.max_height.toFixed(2)+' m';
+  const eEl=document.getElementById('energyStatus');
+  const pct=(res.maxDE/(Math.abs(res.p.IA)+1)*100).toFixed(3);
+  if(res.maxDE<0.01){
+    eEl.innerHTML='<span class="energy-ok">Energy conserved — max drift: '+res.maxDE.toFixed(4)+' J</span>';
+  } else {
+    eEl.innerHTML='<span class="energy-bad">Energy drift: '+res.maxDE.toFixed(3)+' J — check parameters</span>';
+  }
+  updateCharts(res);
+  drawTraj(res);
+  animate(res,0);
+});
+
+['p_start','p_cw','p_mp','p_sl','p_tip','p_mu'].forEach(id=>{
+  const el=document.getElementById(id);
+  const out=document.getElementById('v_'+id.slice(2));
+  el.addEventListener('input',()=>out.textContent=parseFloat(el.value).toFixed(id==='p_start'?0:3));
+});
+
+initCharts();
+const p0=buildParams();
+drawArm({p:p0,snap_q1:[45],snap_q2a:[45+4.12],snap_q3a:[45],snap_dq1:[0],snap_dq2:[0],snap_state:[0],snap_t:[0]},0);
+</script>
